@@ -112,6 +112,24 @@
         export LOCALE_ARCHIVE=@out@/lib/locale/locale-archive
       '';
 
+      passthru = (previousAttrs.passthru or { }) // {
+        tests = (previousAttrs.passthru.tests or { }) // {
+          reduced-locales = callPackage ./locales.nix {
+            inherit
+              stdenv
+              linuxHeaders
+              withLinuxHeaders
+              ;
+            allLocales = false;
+            locales = [
+              "C.UTF-8/UTF-8"
+              "en_US.UTF-8/UTF-8"
+              "zh_CN.UTF-8/UTF-8"
+            ];
+          };
+        };
+      };
+
       meta.description = "Locale information for the GNU C Library";
     }
   )
