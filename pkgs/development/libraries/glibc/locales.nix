@@ -40,6 +40,14 @@
         NIX_NO_SELF_RPATH = 1;
       };
 
+      postPatch = (previousAttrs.postPatch or "") + ''
+        # common.nix leaves glibc helper scripts with /bin/sh shebangs to avoid
+        # retaining a bootstrap shell dependency in glibc.  glibc-locales only
+        # installs the locale archive, and its build runs mkinstalldirs in the
+        # sandbox, where /bin/sh is not available.
+        patchShebangs --build scripts/mkinstalldirs
+      '';
+
       postConfigure = (previousAttrs.postConfigure or "") + ''
         # Hack: get rid of the `-static' flag set by the bootstrap stdenv.
         # This has to be done *after* `configure' because it builds some
