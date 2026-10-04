@@ -2,7 +2,9 @@
   lib,
   stdenv,
   fetchFromGitHub,
+  fetchurl,
   cudaSupport ? opencv.cudaSupport or false,
+  npuSupport ? true,
 
   # build
   addDriverRunpath,
@@ -26,6 +28,7 @@
   pugixml,
   snappy,
   onetbb,
+  zstd,
   cudaPackages,
 }:
 
@@ -47,6 +50,15 @@ let
     ]
   );
 
+  # Prebuilt NPU compiler binaries for the Intel NPU plugin. The version and
+  # commit sha must match the pinned openvino release; see
+  # src/plugins/intel_npu/cmake/download_compiler_libs.cmake upstream.
+  # Carries https://github.com/NixOS/nixpkgs/pull/553041 for openvino 2026.4.0.
+  npuCompiler = fetchurl {
+    url = "https://storage.openvinotoolkit.org/dependencies/thirdparty/linux/npu_compiler/npu_compiler_vcl_ubuntu_24_04-8_3_0-4d68351.tar.gz";
+    hash = "sha256-GRLSZo7hg1NnMmy50oW52d0pDmrvbdfF8sTDrVW35Ng=";
+  };
+
 in
 
 stdenv.mkDerivation (finalAttrs: {
@@ -66,6 +78,7 @@ stdenv.mkDerivation (finalAttrs: {
     "dev"
     "lib"
     "python"
+    "npuCompiler"
   ];
 
   nativeBuildInputs = [
@@ -124,7 +137,8 @@ stdenv.mkDerivation (finalAttrs: {
     # features
     (cmakeBool "ENABLE_INTEL_CPU" true)
     (cmakeBool "ENABLE_INTEL_GPU" true)
-    (cmakeBool "ENABLE_INTEL_NPU" stdenv.hostPlatform.isx86_64)
+    (cmakeBool "ENABLE_INTEL_NPU" (npuSupport && stdenv.hostPlatform.isx86_64))
+    (cmakeBool "ENABLE_INTEL_NPU_COMPILER" (npuSupport && stdenv.hostPlatform.isx86_64))
     (cmakeBool "ENABLE_JS" false)
     (cmakeBool "ENABLE_LTO" true)
     (cmakeBool "ENABLE_ONEDNN_FOR_GPU" false)
@@ -156,6 +170,7 @@ stdenv.mkDerivation (finalAttrs: {
     pugixml
     snappy
     onetbb
+    zstd
   ]
   ++ lib.optionals cudaSupport [
     cudaPackages.cuda_cudart
@@ -166,6 +181,17 @@ stdenv.mkDerivation (finalAttrs: {
   postInstall = ''
     mkdir -p $python/lib
     mv $lib/lib/python* $python/lib/
+  ''
+  + lib.optionalString npuSupport ''
+    # Install the prebuilt NPU compiler into its own output. The NPU plugin
+    # dlopens the compiler loader from the directory of the level-zero NPU
+    # driver (libze_intel_npu.so), so on NixOS this output belongs in
+    # hardware.graphics.extraPackages, next to intel-npu-driver. autoPatchelfHook
+    # (fixup phase) resolves the prebuilt .so dependencies.
+    mkdir -p $npuCompiler/lib
+    tar -xzf ${npuCompiler} -C $TMPDIR
+    cp $TMPDIR/lib/libopenvino_intel_npu_compiler*.so $npuCompiler/lib/
+    cp $TMPDIR/lib/libopenvino_intel_npu_vm_runtime.so $npuCompiler/lib/
   '';
 
   postFixup = ''
