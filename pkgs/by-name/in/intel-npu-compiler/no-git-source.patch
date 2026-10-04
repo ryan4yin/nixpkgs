@@ -1,0 +1,12 @@
+--- a/cmake/compiler_commit_hash.cmake
++++ b/cmake/compiler_commit_hash.cmake
+@@ -13,7 +13,8 @@
+ )
+ 
+ if (NOT ${ERROR_CODE} EQUAL 0)
+-    message(FATAL_ERROR "Failed to capture compiler git commit.")
++    # nixpkgs: the source tree is fetched without .git, use a stable value.
++    set(CURRENT_COMMIT_HASH "unknown")
+ endif()
+ 
+ set(LAST_COMMIT_HASH "")
