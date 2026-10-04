@@ -178,6 +178,8 @@ stdenv.mkDerivation (finalAttrs: {
     stdenv.cc.cc
   ];
 
+  maintainers = [ lib.maintainers.ryan4yin ];
+
   meta = {
     changelog = "https://github.com/openvinotoolkit/openvino/releases/tag/${finalAttrs.src.tag}";
     description = "Open-source toolkit for optimizing and deploying AI inference";
